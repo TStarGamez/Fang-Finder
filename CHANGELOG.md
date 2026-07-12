@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.7.3] - 2026-07-12
+### Fixed
+- `fabric.mod.json` declared compatibility with only `~26.1.2`, when the
+  code (and the pinned Fabric API build) actually works fine on the
+  whole 26.1.x line. Widened to `>=26.1.0 <26.2.0` so the mod doesn't
+  falsely refuse to load on 26.1 or 26.1.1.
+
 ## [3.7.2] - 2026-07-12
 ### Fixed
 - Panel opacity had no visible effect on the map screen or config
