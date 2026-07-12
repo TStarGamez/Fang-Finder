@@ -42,8 +42,6 @@ public final class FangFinderConfig {
 	public boolean oscMs = false;
 
 	// ---- UI / misc ----
-	/** Shown quietly in the bottom corner of the mod's screens. */
-	public String creditName = "TStar";
 	/** Map screen HUD/panel background opacity, percent. */
 	public int panelOpacity = 90;
 	/** Half-width (blocks) the map screen opens zoomed to show. */
@@ -96,5 +94,17 @@ public final class FangFinderConfig {
 		} catch (IOException ignored) {
 			// non-fatal
 		}
+	}
+
+	/**
+	 * Applies the panelOpacity setting to an opaque ARGB color. Every
+	 * panel background across the HUD, map screen, and config screen
+	 * should call this rather than drawing with a fixed alpha, so the
+	 * opacity setting actually affects everything it's supposed to.
+	 */
+	public static int applyPanelOpacity(int argb) {
+		int op = Math.max(20, Math.min(100, get().panelOpacity));
+		int alpha = (op * 255 / 100) << 24;
+		return (argb & 0x00FFFFFF) | alpha;
 	}
 }

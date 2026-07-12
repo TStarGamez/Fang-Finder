@@ -5,6 +5,5 @@
 	"key.fangfinder.toggle_hud": "FangFinder: toggle HUD",
 	"key.fangfinder.copy": "FangFinder: copy measurements",
 	"key.fangfinder.clear": "FangFinder: clear measurements",
-	"key.categories.fangfinder.main": "FangFinder",
-	"key_category.fangfinder.main": "FangFinder"
+	"key.category.fangfinder.main": "FangFinder"
 }

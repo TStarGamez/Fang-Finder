@@ -111,6 +111,31 @@ public final class MapScreen extends Screen {
 	/** Width of the left-side planner panel when the Plan tool is open. */
 	private static final int PLAN_PANEL_W = 208;
 
+	private static final String PLAN_DESC = "Suggests where to build "
+			+ "trackers so any target in the area can be pinned "
+			+ "accurately. Fill in the area, pick how many trackers, "
+			+ "then Compute.";
+
+	private static final int PLAN_ROW_SPACING = 40;
+
+	/**
+	 * Y of the first Optimal-Placing field row, positioned below the
+	 * wrapped description text so a long description can never grow down
+	 * into the field labels - shared by the widget layout and the render
+	 * pass so they can't drift out of sync with each other.
+	 */
+	private int planFieldRow0() {
+		return HEADER_H + 26 + wrappedHeight(PLAN_DESC, PLAN_PANEL_W - 16)
+				+ 8;
+	}
+
+	/** Y of the Fill from world / Compute placement / Copy coordinates
+	 *  button block, right below the 4 field rows - shared for the same
+	 *  reason as {@link #planFieldRow0}. */
+	private int planButtonsY() {
+		return planFieldRow0() + PLAN_ROW_SPACING * 3 + 28;
+	}
+
 	private int mapX0() {
 		return planOpen ? PLAN_PANEL_W + 14 : 8;
 	}
@@ -200,8 +225,9 @@ public final class MapScreen extends Screen {
 				"Nothing to clear yet.");
 		tipButton(Component.literal("Share"), bx, by + 88, 58, 20,
 				b -> Sharing.shareSet(shareAutoName()),
-				"Broadcast all current rays as a named set over chat, so "
-						+ "other FangFinder users can import them.", haveRays,
+				"Copy all current rays, as a named set, to the "
+						+ "clipboard - paste it anywhere for another "
+						+ "FangFinder user to import.", haveRays,
 				"No rays to share yet.");
 		this.addRenderableWidget(Button.builder(
 				Component.literal(planOpen ? "Rays" : "Plan"), b -> {
@@ -232,6 +258,12 @@ public final class MapScreen extends Screen {
 					66, 18, pRayZ, Component.literal("Z")));
 			pRayYaw = this.addRenderableWidget(new EditBox(this.font, 224,
 					y, 86, 18, pRayYaw, Component.literal("Yaw")));
+			tipEditBox(pRayX, "The evoker's X coordinate for a manually "
+					+ "entered ray.");
+			tipEditBox(pRayZ, "The evoker's Z coordinate for a manually "
+					+ "entered ray.");
+			tipEditBox(pRayYaw, "The yaw (F3 bearing) of the fang line, "
+					+ "in degrees.");
 			this.addRenderableWidget(Button.builder(
 					Component.literal("Add ray"), b -> {
 						Double x = parseD(pRayX.getValue());
@@ -260,8 +292,8 @@ public final class MapScreen extends Screen {
 			int px = 14;
 			int fieldX = px + 4;
 			boolean first = pCx == null;
-			int r0 = HEADER_H + 44;   // first field row
-			int rs = 40;              // row spacing (label + box)
+			int r0 = planFieldRow0();   // first field row
+			int rs = 40;                // row spacing (label + box)
 			pCx = this.addRenderableWidget(new EditBox(this.font, fieldX,
 					r0, 88, 18, pCx, Component.literal("Center X")));
 			pCz = this.addRenderableWidget(new EditBox(this.font,
@@ -276,6 +308,16 @@ public final class MapScreen extends Screen {
 			pFocus = this.addRenderableWidget(new EditBox(this.font, fieldX,
 					r0 + rs * 3, 184, 18, pFocus,
 					Component.literal("Focus radius")));
+			tipEditBox(pCx, "X coordinate of the area's centre to plan "
+					+ "trackers around.");
+			tipEditBox(pCz, "Z coordinate of the area's centre to plan "
+					+ "trackers around.");
+			tipEditBox(pSize, "Width of the area to cover, in blocks "
+					+ "(e.g. your world border size).");
+			tipEditBox(pN, "How many tracker machines you plan to build "
+					+ "(2-8).");
+			tipEditBox(pFocus, "Concentrate accuracy within this radius "
+					+ "of the centre; 0 plans for the whole area evenly.");
 			if (first) {
 				pCx.setValue("0");
 				pCz.setValue("0");
@@ -284,7 +326,7 @@ public final class MapScreen extends Screen {
 				pFocus.setValue("0");
 			}
 
-			int rowBtns = r0 + rs * 4 + 4;
+			int rowBtns = planButtonsY();
 			tipButton(Component.literal("Fill from world"), fieldX, rowBtns,
 					184, 20, b -> fillPlannerFromWorld(),
 					"Set Center to your position and guess the border "
@@ -292,6 +334,26 @@ public final class MapScreen extends Screen {
 							+ "pick a tracker count.",
 					this.minecraft != null && this.minecraft.player != null,
 					"No player loaded.");
+
+			// Built before "Compute placement" so that button's onPress
+			// can flip this one from disabled to enabled once a plan
+			// exists - tipButton() only sets the disabled state once, at
+			// build time, so without this the button stayed greyed out
+			// forever even after a plan was computed.
+			Button copyCoordsBtn = tipButton(
+					Component.literal("Copy coordinates"), fieldX,
+					rowBtns + 48, 184, 20, b -> {
+						if (lastPlan != null) {
+							if (this.minecraft != null) {
+								this.minecraft.setScreen(null);
+							}
+							FangFinderClient.chatWithCopy(
+									"tracker placement plan - ",
+									lastPlan.copyText());
+						}
+					}, "Copy the suggested tracker coordinates to "
+							+ "clipboard.", lastPlan != null,
+					"Compute a placement first.");
 
 			this.addRenderableWidget(Button.builder(
 					Component.literal("Compute placement"), b -> {
@@ -309,6 +371,14 @@ public final class MapScreen extends Screen {
 							scale = Math.max(0.02, Math.min(16.0,
 									(mapX1() - mapX0() - 40)
 											/ Math.max(size, 64)));
+							if (lastPlan != null) {
+								copyCoordsBtn.active = true;
+								copyCoordsBtn.setTooltip(Tooltip.create(
+										Component.literal("Copy the "
+												+ "suggested tracker "
+												+ "coordinates to "
+												+ "clipboard.")));
+							}
 							FangFinderClient.feedback(lastPlan != null
 									? "Plan ready: " + lastPlan.summary()
 									: "Could not compute a plan");
@@ -322,20 +392,6 @@ public final class MapScreen extends Screen {
 							+ "spots to build trackers for the area you "
 							+ "described, and draw them on the map."))
 			).build());
-
-			tipButton(Component.literal("Copy coordinates"), fieldX,
-					rowBtns + 48, 184, 20, b -> {
-						if (lastPlan != null) {
-							if (this.minecraft != null) {
-								this.minecraft.setScreen(null);
-							}
-							FangFinderClient.chatWithCopy(
-									"tracker placement plan - ",
-									lastPlan.copyText());
-						}
-					}, "Copy the suggested tracker coordinates to "
-							+ "clipboard.", lastPlan != null,
-					"Compute a placement first.");
 		}
 	}
 
@@ -379,6 +435,21 @@ public final class MapScreen extends Screen {
 				18, pNuke, Component.literal("Nuke size")));
 		pStab = this.addRenderableWidget(new EditBox(this.font, x + 68,
 				184, 62, 18, pStab, Component.literal("Stab depth")));
+		tipEditBox(pOx, "Cannon origin X - chunk aligned (divisible by "
+				+ "16).");
+		tipEditBox(pOy, "Cannon origin Y - chunk aligned (divisible by "
+				+ "16).");
+		tipEditBox(pOz, "Cannon origin Z - chunk aligned (divisible by "
+				+ "16).");
+		tipEditBox(pTx, "Target X to hit with the cannon.");
+		tipEditBox(pTy, "Target Y to hit with the cannon.");
+		tipEditBox(pTz, "Target Z to hit with the cannon.");
+		tipEditBox(pPass, "One of 222 valid OSC passcodes (default 940).");
+		tipEditBox(pSlot, "Which magazine slot to fire from.");
+		tipEditBox(pNuke, "Nuke payload size, 1-31 (used when "
+				+ "Mode = Nuke).");
+		tipEditBox(pStab, "Stab payload depth, 1-275 (used when "
+				+ "Mode = Stab).");
 		if (firstTime) {
 			pOx.setValue(Integer.toString(cfg.oscOriginX));
 			pOy.setValue(Integer.toString(cfg.oscOriginY));
@@ -535,29 +606,27 @@ public final class MapScreen extends Screen {
 		drawToast(g);
 	}
 
-	/** The labelled Optimal-Placing panel down the left side. */
+	/**
+	 * Text/labels for the Optimal-Placing panel. The panel's background
+	 * fill itself is drawn earlier, in {@link #drawChrome}, so it lands
+	 * behind (not on top of) the field widgets - see the comment there.
+	 */
 	private void renderPlanPanel(GuiGraphicsExtractor g) {
 		int px = 6;
 		int w = PLAN_PANEL_W;
-		g.fill(px, HEADER_H + 4, px + w, this.height - 6, C_PANEL);
-		g.fill(px, HEADER_H + 4, px + w, HEADER_H + 5, C_RED);
-
 		int tx = px + 8;
 		g.text(this.font, "OPTIMAL PLACING", tx, HEADER_H + 12, C_RED);
-		drawWrapped(g, "Suggests where to build trackers so any target in "
-				+ "the area can be pinned accurately. Fill in the area, "
-				+ "pick how many trackers, then Compute.",
-				tx, HEADER_H + 26, w - 16, C_DIM);
+		drawWrapped(g, PLAN_DESC, tx, HEADER_H + 26, w - 16, C_DIM);
 
-		int r0 = HEADER_H + 44;
+		int r0 = planFieldRow0();
 		int rs = 40;
 		label(g, "Area centre (X, Z)", tx, r0 - 10);
 		label(g, "World border size (width in blocks)", tx, r0 + rs - 10);
 		label(g, "Number of trackers (2-8)", tx, r0 + rs * 2 - 10);
 		label(g, "Focus radius (0 = whole area)", tx, r0 + rs * 3 - 10);
 
-		// results readout
-		int ry = HEADER_H + 44 + rs * 4 + 78;
+		// results readout, below the button block
+		int ry = planButtonsY() + 48 + 20 + 14;
 		if (lastPlan == null) {
 			drawWrapped(g, "No plan yet. Purple markers will appear on the "
 					+ "map, numbered P1..Pn - build a tracker at each.",
@@ -580,6 +649,23 @@ public final class MapScreen extends Screen {
 
 	private void label(GuiGraphicsExtractor g, String text, int x, int y) {
 		g.text(this.font, text, x, y, C_GOLD);
+	}
+
+	/**
+	 * Draws a map-marker label offset to the right of (sx, y) by default,
+	 * flipping to the marker's left instead when the label would
+	 * otherwise overflow past the map's right edge (x1) into the fixed
+	 * button column, then clamps into [x0, x1] either way.
+	 */
+	private void markerLabel(GuiGraphicsExtractor g, String text, int sx,
+			int y, int rightOffset, int x0, int x1, int color) {
+		int w = this.font.width(text);
+		int lx = sx + rightOffset;
+		if (lx + w > x1) {
+			lx = sx - rightOffset - w;
+		}
+		lx = Math.max(x0, Math.min(lx, x1 - w));
+		g.text(this.font, text, lx, y, color);
 	}
 
 	/** Word-wraps text to a pixel width, drawing line by line. */
@@ -626,20 +712,27 @@ public final class MapScreen extends Screen {
 		int w = this.font.width(toastText);
 		int cx = this.width / 2;
 		int y = this.height - 52;
-		g.fill(cx - w / 2 - 8, y - 4, cx + w / 2 + 8, y + 14, 0xE0000000);
+		g.fill(cx - w / 2 - 8, y - 4, cx + w / 2 + 8, y + 14,
+				FangFinderConfig.applyPanelOpacity(0xFF000000));
 		g.fill(cx - w / 2 - 8, y - 4, cx + w / 2 + 8, y - 3, C_RED);
 		g.text(this.font, toastText, cx - w / 2, y + 1, 0xFFFFE0E0);
 	}
 
-	/** Opaque backdrop, header band, tab bodies, content panels. */
+	/** Backdrop, header band, tab bodies, content panels. */
 	private void drawChrome(GuiGraphicsExtractor g) {
-		int op = Math.max(20, Math.min(100,
-				FangFinderConfig.get().panelOpacity));
-		int alpha = (op * 255 / 100) << 24;
-		int panel = (C_PANEL & 0x00FFFFFF) | alpha;
+		int panel = FangFinderConfig.applyPanelOpacity(C_PANEL);
 
-		g.fill(0, 0, this.width, this.height, C_BG);
-		g.fill(0, 0, this.width, HEADER_H, C_HEADER);
+		// The backdrop and header must also respect panelOpacity, not
+		// just the smaller panel boxes - C_BG and C_PANEL are nearly
+		// the same dark color, so blending panels against an opaque
+		// C_BG backdrop was visually imperceptible no matter what the
+		// setting was. Making the whole screen translucent together
+		// (revealing the game world behind, same as vanilla's own
+		// Options screens) is what actually makes it visible.
+		g.fill(0, 0, this.width, this.height,
+				FangFinderConfig.applyPanelOpacity(C_BG));
+		g.fill(0, 0, this.width, HEADER_H,
+				FangFinderConfig.applyPanelOpacity(C_HEADER));
 		g.fill(0, HEADER_H, this.width, HEADER_H + 1, C_EDGE);
 		for (int tab = 0; tab <= 1; tab++) {
 			int tx = tabLeftX(tab);
@@ -659,19 +752,24 @@ public final class MapScreen extends Screen {
 					mapY0() + 174, panel);
 			g.fill(mapX0() - 2, this.height - 32, mapX1() + 2,
 					this.height - 4, panel);
+			// Optimal Placing panel background - must be drawn here,
+			// before super.extractRenderState() renders the widgets,
+			// or its opaque fill paints over the field EditBoxes and
+			// buttons and makes them invisible (and un-clickable at a
+			// glance, even though their hitboxes still work).
+			if (planOpen) {
+				int px = 6;
+				int pw = PLAN_PANEL_W;
+				g.fill(px, HEADER_H + 4, px + pw, this.height - 6,
+						panel);
+				g.fill(px, HEADER_H + 4, px + pw, HEADER_H + 5, C_RED);
+			}
 		} else {
 			g.fill(12, HEADER_H + 6, 232, 268, panel);
 			int panelX = Math.max(244, this.width / 2 - 10);
 			g.fill(panelX, HEADER_H + 6, this.width - 8,
 					this.height - 8, panel);
 		}
-		// credit, bottom-left corner of every tab
-		// credit, bottom-right corner (bottom-left holds inputs on the
-		// tracker tab, which previously overlapped it)
-		String credit = "by " + FangFinderConfig.get().creditName;
-		g.text(this.font, credit,
-				this.width - 6 - this.font.width(credit),
-				this.height - 10, C_DIM);
 	}
 
 	private void drawTitleAndTabs(GuiGraphicsExtractor g) {
@@ -754,9 +852,9 @@ public final class MapScreen extends Screen {
 				if (inMap(sx, sy, x0, y0, x1, y1)) {
 					g.fill(sx - 6, sy, sx + 7, sy + 1, set.color);
 					g.fill(sx, sy - 6, sx + 1, sy + 7, set.color);
-					g.text(this.font, set.name + String.format(
+					markerLabel(g, set.name + String.format(
 							Locale.ROOT, " %.0f/%.0f", set.fix[0],
-							set.fix[1]), sx + 8, sy + 4, set.color);
+							set.fix[1]), sx, sy + 4, 8, x0, x1, set.color);
 				}
 			}
 		}
@@ -770,9 +868,9 @@ public final class MapScreen extends Screen {
 				int sy = midY + (int) Math.round((pp[1] - centerZ) * scale);
 				if (inMap(sx, sy, x0, y0, x1, y1)) {
 					g.fill(sx - 3, sy - 3, sx + 4, sy + 4, 0xFFB07CFF);
-					g.text(this.font, "P" + (i + 1) + String.format(
+					markerLabel(g, "P" + (i + 1) + String.format(
 							Locale.ROOT, " %.0f/%.0f", pp[0], pp[1]),
-							sx + 6, sy - 9, 0xFFB07CFF);
+							sx, sy - 9, 6, x0, x1, 0xFFB07CFF);
 				}
 			}
 		}
@@ -787,7 +885,7 @@ public final class MapScreen extends Screen {
 						+ (m.fangCount() == 0 ? " (manual)" : "")
 						+ (m.targetName() != null
 								? " -> " + m.targetName() : "");
-				g.text(this.font, label, sx + 6, sy - 9, C_GOLD);
+				markerLabel(g, label, sx, sy - 9, 6, x0, x1, C_GOLD);
 			}
 		}
 
@@ -810,9 +908,9 @@ public final class MapScreen extends Screen {
 				}
 				g.fill(sx - 8, sy, sx + 9, sy + 1, C_GREEN);
 				g.fill(sx, sy - 8, sx + 1, sy + 9, C_GREEN);
-				g.text(this.font, String.format(Locale.ROOT,
-						"FIX %.1f / %.1f", fix[0], fix[1]), sx + 8,
-						sy + 6, C_GREEN);
+				markerLabel(g, String.format(Locale.ROOT,
+						"FIX %.1f / %.1f", fix[0], fix[1]), sx, sy + 6, 8,
+						x0, x1, C_GREEN);
 			}
 		}
 
@@ -831,8 +929,8 @@ public final class MapScreen extends Screen {
 				if (inMap(sx, sy, x0, y0, x1, y1)) {
 					int color = isSelf ? 0xFFFFFFFF : 0xFF4FD7FF;
 					g.fill(sx - 2, sy - 2, sx + 3, sy + 3, color);
-					g.text(this.font, isSelf ? "you" : name, sx + 5,
-							sy - 4, color);
+					markerLabel(g, isSelf ? "you" : name, sx, sy - 4, 5,
+							x0, x1, color);
 				}
 			}
 		}
@@ -1142,6 +1240,11 @@ public final class MapScreen extends Screen {
 	private Button tipButton(Component label, int x, int y, int w, int h,
 			Button.OnPress action, String help) {
 		return tipButton(label, x, y, w, h, action, help, true, "");
+	}
+
+	/** Adds a hover tooltip to an already-added EditBox. */
+	private static void tipEditBox(EditBox box, String help) {
+		box.setTooltip(Tooltip.create(Component.literal(help)));
 	}
 
 	private static Double parseD(String s) {

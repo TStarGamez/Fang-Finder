@@ -10,6 +10,7 @@ bin/
 
 # Claude Code local settings
 .claude/settings.local.json
+CLAUDE.md
 
 # OS
 .DS_Store

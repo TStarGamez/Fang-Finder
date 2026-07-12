@@ -120,7 +120,8 @@ public final class FangFinderClient implements ClientModInitializer {
 				}
 			}
 			// stale rays dropping out of the age window change the fix
-			if (FangFinderConfig.get().maxRayAgeSeconds > 0
+			if (FangFinderConfig.get().enabled
+					&& FangFinderConfig.get().maxRayAgeSeconds > 0
 					&& tick % 20 == 0 && !machines.isEmpty()) {
 				recomputeFix();
 			}
@@ -158,11 +159,14 @@ public final class FangFinderClient implements ClientModInitializer {
 
 		// ---- data sharing: parse incoming chat for share payloads ----
 		ClientReceiveMessageEvents.CHAT.register(
-				(message, signed, sender, boundType, timestamp) ->
+				(message, signed, sender, boundType, timestamp) -> {
+					if (FangFinderConfig.get().enabled) {
 						Sharing.onChat(message.getString(),
-								profileName(sender)));
+								profileName(sender));
+					}
+				});
 		ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
-			if (!overlay) {
+			if (!overlay && FangFinderConfig.get().enabled) {
 				Sharing.onChat(message.getString(), null);
 			}
 		});
@@ -243,8 +247,10 @@ public final class FangFinderClient implements ClientModInitializer {
 		String[] rows = {
 				"/fangfinder help - this list",
 				"/fangfinder status - fix, machines, geometry",
-				"/fangfinder share <name> - broadcast a named ray set",
-				"/fangfinder shareray - broadcast your newest ray",
+				"/fangfinder share <name> - copy a named ray set "
+						+ "to clipboard",
+				"/fangfinder shareray - copy your newest ray "
+						+ "to clipboard",
 				"/fangfinder sets / remove <name> - manage imports",
 				"/fangfinder clear - wipe all rays and the fix",
 				"keys: N map · F6 mod · F7 guide · F8 hud · "
@@ -710,8 +716,22 @@ public final class FangFinderClient implements ClientModInitializer {
 	private static void renderHud(
 			net.minecraft.client.gui.GuiGraphicsExtractor graphics,
 			net.minecraft.client.DeltaTracker deltaTracker) {
-		if (!hudVisible || !FangFinderConfig.get().enabled
-				|| machines.isEmpty()) {
+		if (!hudVisible) {
+			return;
+		}
+		if (!FangFinderConfig.get().enabled) {
+			// Always show something when the master switch is off, even
+			// with no active tracking - otherwise toggling it off looks
+			// like it did nothing when there was no HUD to hide anyway.
+			Font f = Minecraft.getInstance().font;
+			String msg = "FangFinder OFF (F6)";
+			int w = f.width(msg);
+			graphics.fill(4, 4, 4 + w + 8, 4 + f.lineHeight + 6,
+					FangFinderConfig.applyPanelOpacity(0xFF101418));
+			graphics.text(f, msg, 8, 8, 0xFFE5484D);
+			return;
+		}
+		if (machines.isEmpty()) {
 			return;
 		}
 		int maxAge = FangFinderConfig.get().maxRayAgeSeconds;
@@ -778,7 +798,7 @@ public final class FangFinderClient implements ClientModInitializer {
 		int y = 4;
 		graphics.fill(x, y, x + width + pad * 2,
 				y + logoH + lines.size() * lineH + pad2 * 2 - 1,
-				0xB0101418);
+				FangFinderConfig.applyPanelOpacity(0xFF101418));
 		int textY = y + pad2;
 		if (showLogo) {
 			graphics.blitSprite(

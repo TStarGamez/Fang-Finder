@@ -113,8 +113,7 @@ FangFinder's entry when ModMenu is installed). Options, grouped:
 
 - **General** - mod on/off, chat announcements, HUD logo on/off
 - **Tracking** - same-machine radius, ray staleness, default map zoom
-- **Appearance** - panel opacity, credit name (shown bottom-left of
-  both the map screen and the config screen)
+- **Appearance** - panel opacity
 
 ## Building
 
@@ -210,22 +209,23 @@ randomized firing solutions.
 
 ## Data sharing (co-op tracking)
 
-Rays and whole ray SETS travel between mod users over ordinary chat:
+Rays and whole ray SETS are copied to your clipboard for you to send
+however you like (Discord, a manually typed chat message, etc.) - a
+receiving player's FangFinder still recognizes the format if it ends up
+in chat, so pasting it into chat yourself still auto-imports for anyone
+nearby with the mod:
 
-- `/fangfinder shareray` - broadcast your newest ray. Anyone nearby with
-  the mod auto-adds it to their live tracking, so two players sitting at
-  two different machines both get the fix instantly (share angles both
-  ways and both clients solve the same intersection).
-- `/fangfinder share <name>` or the map's "Share" button - broadcast all
-  current rays as a named set, chunked under the chat length limit.
-  Receivers import it as a separate colored layer on the map, complete
-  with its own fix. If a set with that name already exists, the receiver
-  is prompted in chat with clickable [overwrite] [keep both] [discard]
-  choices (keep-both renames to name-2).
+- `/fangfinder shareray` - copy your newest ray to clipboard.
+- `/fangfinder share <name>` or the map's "Share" button - copy all
+  current rays as a named set to clipboard. Receivers import it as a
+  separate colored layer on the map, complete with its own fix. If a
+  set with that name already exists, the receiver is prompted in chat
+  with clickable [overwrite] [keep both] [discard] choices (keep-both
+  renames to name-2).
 - `/fangfinder sets` lists imports, `/fangfinder remove <name>` deletes.
 
-Wire format is plain text (`ff|ray|x,z,yaw` / `ff|set|name|i/n|...`), so
-it works on any server and is human-readable for players without the mod.
+Wire format is plain text (`ff|ray|x,z,yaw` / `ff|set|name|1/1|...`), so
+it works anywhere and is human-readable for players without the mod.
 
 ## Optimal placing (Plan button, Tracker tab)
 

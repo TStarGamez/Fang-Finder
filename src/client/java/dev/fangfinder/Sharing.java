@@ -2,12 +2,10 @@ package dev.fangfinder;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -32,15 +30,12 @@ import net.minecraft.network.chat.MutableComponent;
  */
 public final class Sharing {
 	private static final int MAX_SETS = 8;
-	private static final int RAYS_PER_CHUNK = 4;
 
 	/** Imported sets by name. */
 	static final Map<String, RaySet> sets = new LinkedHashMap<>();
 
 	// chunk assembly: key = sender|name
 	private static final Map<String, String[]> partial = new HashMap<>();
-	// our own outgoing payloads, to ignore the echo
-	private static final Set<String> recentlySent = new HashSet<>();
 	// pending name collision
 	private static RaySet pendingSet;
 
@@ -58,7 +53,8 @@ public final class Sharing {
 		}
 		Measurement m = FangFinderClient.machines
 				.get(FangFinderClient.machines.size() - 1);
-		send("ff|ray|" + encodeRay(m));
+		copyToClipboard("ff|ray|" + encodeRay(m));
+		FangFinderClient.feedback("Ray copied to clipboard");
 	}
 
 	static void shareSet(String rawName) {
@@ -68,22 +64,16 @@ public final class Sharing {
 		}
 		String name = sanitize(rawName);
 		List<Measurement> rays = FangFinderClient.machines;
-		int chunks = (rays.size() + RAYS_PER_CHUNK - 1) / RAYS_PER_CHUNK;
-		for (int c = 0; c < chunks; c++) {
-			StringBuilder payload = new StringBuilder();
-			for (int i = c * RAYS_PER_CHUNK;
-					i < Math.min(rays.size(), (c + 1) * RAYS_PER_CHUNK);
-					i++) {
-				if (payload.length() > 0) {
-					payload.append(';');
-				}
-				payload.append(encodeRay(rays.get(i)));
+		StringBuilder payload = new StringBuilder();
+		for (Measurement m : rays) {
+			if (payload.length() > 0) {
+				payload.append(';');
 			}
-			send("ff|set|" + name + "|" + (c + 1) + "/" + chunks + "|"
-					+ payload);
+			payload.append(encodeRay(m));
 		}
-		FangFinderClient.feedback("Shared set '" + name + "' ("
-				+ rays.size() + " rays, " + chunks + " message(s))");
+		copyToClipboard("ff|set|" + name + "|1/1|" + payload);
+		FangFinderClient.feedback("Set '" + name + "' (" + rays.size()
+				+ " rays) copied to clipboard");
 	}
 
 	private static String encodeRay(Measurement m) {
@@ -91,16 +81,15 @@ public final class Sharing {
 				m.anchorZ(), m.yaw());
 	}
 
-	private static void send(String line) {
-		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null) {
-			return;
-		}
-		if (recentlySent.size() > 64) {
-			recentlySent.clear();
-		}
-		recentlySent.add(line);
-		mc.player.connection.sendChat(line);
+	/**
+	 * Payloads are no longer broadcast to chat (that only auto-imported
+	 * for other players live in the same session); copying to clipboard
+	 * lets the same wire format be pasted anywhere - Discord, a manually
+	 * typed chat message, etc. - and still be recognized by a receiving
+	 * client's {@link #onChat} if it ends up in chat at all.
+	 */
+	private static void copyToClipboard(String line) {
+		Minecraft.getInstance().keyboardHandler.setClipboard(line);
 	}
 
 	// ------------------------------------------------------------------
@@ -114,9 +103,6 @@ public final class Sharing {
 			return;
 		}
 		String payload = rawText.substring(idx).trim();
-		if (recentlySent.contains(payload)) {
-			return; // our own message echoing back
-		}
 		String self = localName();
 		if (senderOrNull != null && senderOrNull.equals(self)) {
 			return;
