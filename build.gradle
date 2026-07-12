@@ -1,0 +1,62 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+version = project.mod_version
+group = project.maven_group
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"fangfinder" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+repositories {
+	maven {
+		name = 'TerraformersMC'
+		url = 'https://maven.terraformersmc.com/releases/'
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// Optional: ModMenu config screen. The integration file lives in the
+	// client source set (src/client), so it uses that source set's
+	// standard Gradle compile-only configuration, which Gradle always
+	// creates as <sourceSet>CompileOnly. We compile against ModMenu's API
+	// interfaces only; the mod runs fine with or without ModMenu at
+	// runtime, and ModMenu does not need to be remapped.
+	clientCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+
+	// Note: no compile dependency on Xaero's World Map is needed - the
+	// integration is a plain chat-format waypoint string, so there is
+	// nothing to compile against.
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+}
+
+java {
+	withSourcesJar()
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(25)
+	}
+}

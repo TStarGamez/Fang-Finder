@@ -1,0 +1,29 @@
+{
+	"schemaVersion": 1,
+	"id": "fangfinder",
+	"version": "${version}",
+	"name": "TStar\u0027s FangFinder",
+	"icon": "icon.png",
+	"description": "Client-side evoker fang bearing reader. Recovers the server's exact aim angle from fang spawn positions and triangulates the tracked player from multiple volleys.",
+	"authors": ["TStar"],
+	"license": "CC0-1.0",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"dev.fangfinder.FangFinderClient"
+		],
+		"modmenu": [
+			"dev.fangfinder.FangFinderModMenu"
+		]
+	},
+	"suggests": {
+		"modmenu": "*",
+		"xaeroworldmap": "*"
+	},
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.1.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

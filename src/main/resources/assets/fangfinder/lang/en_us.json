@@ -1,0 +1,10 @@
+{
+	"key.fangfinder.map": "FangFinder: open map / OSC screen",
+	"key.fangfinder.toggle_mod": "FangFinder: toggle mod on/off",
+	"key.fangfinder.guide": "FangFinder: placement guide",
+	"key.fangfinder.toggle_hud": "FangFinder: toggle HUD",
+	"key.fangfinder.copy": "FangFinder: copy measurements",
+	"key.fangfinder.clear": "FangFinder: clear measurements",
+	"key.categories.fangfinder.main": "FangFinder",
+	"key_category.fangfinder.main": "FangFinder"
+}
